@@ -3,8 +3,9 @@ import json
 from typing import List, Tuple
 from docx import Document
 from io import BytesIO
-from llm import get_criteria_prompt, generate_response, get_scoring_prompt
+from llm import get_criteria_header_prompt, generate_response, get_scoring_prompt
 
+# Function to extract real content from bytes format content
 async def extract_content(file_ext: str, content: bytes) -> str:
     
     if file_ext==".pdf":
@@ -27,7 +28,7 @@ async def extract_content(file_ext: str, content: bytes) -> str:
             text += paragraph.text + "\n"
         return text.strip()
     
-
+# Function that handles the process of retrieving criteria headers from the extracted criteria
 async def get_criteria_headers(criteria_list: List):
 
     error_correction_prompt = ""
@@ -38,7 +39,7 @@ async def get_criteria_headers(criteria_list: List):
     while attempt <= max_retires:
 
         try:
-            prompt = get_criteria_prompt(criteria_list, error_correction_prompt = "")
+            prompt = get_criteria_header_prompt(criteria_list, error_correction_prompt = "")
             response = generate_response(prompt)
             # original_criteria_headers = json.loads(response)
             criteria_headers = json.loads(response)["criteria_headers"]
@@ -83,7 +84,7 @@ async def get_criteria_headers(criteria_list: List):
 
     return criteria_headers
 
-
+# function to get scores for each candidate resumes based on the resume content and criteria
 async def get_candidate_scores(content : str, criteria_headers: dict):
 
     error_correction_prompt = ""

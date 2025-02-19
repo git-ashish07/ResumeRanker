@@ -27,7 +27,7 @@ app = FastAPI(
 def root():
     return {"message":"Welcome to Resume Ranker"}
 
-# Task-1 API Endpoint
+# End point to extract criteria from Job descriptions
 @app.post("/extract-criteria",
     summary="Extract ranking criteria from job description",
     description="""
@@ -110,7 +110,7 @@ async def extract_criteria(file: UploadFile):
 
     return ranking_criteria
 
-# Task-2 API Endpoint
+# Endpoint to score the resumes using the extracted criteria
 @app.post("/score-resumes",
     summary="Score resumes against criteria",
     description="""

@@ -57,7 +57,7 @@ def generate_response(query):
             print('OpenAI Response Error while generating response!!')
             
             
-
+# prompt to extract the criteria from the Job description
 def get_ranking_criteria_prompt(content, error_correction_prompt = ""):
 
     prompt = f"""<context>
@@ -98,8 +98,8 @@ OUTPUT REQUIREMENTS:
     return prompt
 
     
-
-def get_criteria_prompt(criteria_list, error_correction_prompt = ""):
+# Prompt to get criteria header from extracted criteria
+def get_criteria_header_prompt(criteria_list, error_correction_prompt = ""):
 
     prompt = f"""<context>
 You are an expert at generating criteria headers from given criteria which are used to determine how fit a candidate is for a job.
@@ -156,7 +156,7 @@ Response:
     
     return prompt
 
-
+# prompt to get scores on the resume content based on the criteria
 def get_scoring_prompt(content, criteria_headers, error_correction_prompt = ""):
 
     prompt = f"""<context>
