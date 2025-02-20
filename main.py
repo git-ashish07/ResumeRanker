@@ -1,11 +1,11 @@
 import os
 import json
 import pandas as pd 
-import numpy as np
 from fastapi import FastAPI, UploadFile, HTTPException, Form
 from llm import *
 from utils.helpers import *
 from typing import List
+from models import CriteriaResponse, ErrorResponse, ScoreResponse
 
 allowed_extensions = [".pdf", ".docx"]
 
@@ -33,30 +33,10 @@ def root():
     Extracts key ranking criteria from an uploaded job description file.
     Supports PDF and DOCX file formats.
     """,
-    response_description="JSON object containing extracted ranking criteria",
+    response_model=CriteriaResponse,
     responses={
-        200: {
-            "description": "Successfully extracted criteria",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "criteria": [
-                            "5+ years of Python development",
-                            "Experience with AWS",
-                            "Strong communication skills"
-                        ]
-                    }
-                }
-            }
-        },
-        400: {
-            "description": "Invalid file format or processing error",
-            "content": {
-                "application/json": {
-                    "example": {"detail": "Invalid file extension. Only .pdf, .docx are allowed!"}
-                }
-            }
-        }
+        200: {"model": CriteriaResponse},
+        400: {"model": ErrorResponse}
     }
 )
 async def extract_criteria(file: UploadFile):
@@ -125,49 +105,32 @@ async def extract_criteria(file: UploadFile):
     - 1: Minimal relevant experience
     - 0: No relevant experience OR No information available to assess
     """,
-    response_description="Success message or error details",
+    response_model=ScoreResponse,
     responses={
-        200: {
-            "description": "Successfully scored resumes",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "Success": "Scores are successfully generated and saved in csv file."
-                    }
-                }
-            }
-        },
-        400: {
-            "description": "Invalid input or processing error",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "detail": "Invalid JSON format for criteria"
-                    }
-                }
-            }
-        }
+        200: {"model": ScoreResponse},
+        400: {"model": ErrorResponse}
     }
 )
 async def score_resumes(files: List[UploadFile], criteria: str = Form(...)):
     
     print("#"*30)
-    error = False
-
-    # Convert criteria string to list
+    
     try:
-        criteria_dict = json.loads(criteria)  # Parse JSON string into Python list
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid JSON format for criteria")
+        # Convert criteria string to list
+        criteria_dict = json.loads(criteria)
 
+    except json.JSONDecodeError:
+        return ScoreResponse(message = "Invalid input JSON format for criteria!!")
+        
     try:
         # get criteria headers from criteria
         criteria_headers = await get_criteria_headers(criteria_dict["criteria"])
+        if "Error" in criteria_headers.criteria_headers:
+            return ScoreResponse(message="Failed to process due to criteria headers error")
 
         # dataframe to store results
-        header_cols = ['Candidate Name'] + [header for header in list(criteria_headers.values())]
-        score_df = pd.DataFrame(columns = header_cols)
-        print("\n",score_df)
+        header_cols = ['Candidate Name'] + list(criteria_headers.criteria_headers.values())
+        score_df = pd.DataFrame(columns=header_cols)
 
         # iterating over each resume and storing the content
         for file in files:
@@ -188,26 +151,36 @@ async def score_resumes(files: List[UploadFile], criteria: str = Form(...)):
             text_content = await extract_content(file_ext, content)
 
             # send the extracted resume content along with criteria to generate scores
-            scores_response = await get_candidate_scores(text_content, criteria_headers)
+            scores_response = await get_candidate_scores(text_content, criteria_headers.criteria_headers)
+
+            if scores_response.Candidate_Name == "Error":
+                continue
+
+            # Create a row with the correct column order using model attributes
+            row_data = {
+                'Candidate Name': scores_response.Candidate_Name,
+                **scores_response.scores  # Unpack the scores dictionary
+            }
 
             # in case the returned output is not the right order of columns, lets reorder it
-            ordered_row = {col: scores_response.get(col, None) for col in score_df.columns}
+            ordered_row = {col: row_data.get(col, None) for col in score_df.columns}
 
             # Add the row to DataFrame
             score_df.loc[len(score_df)] = ordered_row
-            
-    
-    except Exception as e:
-        print(f"Error : {str(e)}")
-        error = True
 
-    if error:
-        return {"Error": "Error in either extracting content from resumes or generating scores!!"}
+        if len(score_df) == 0:
+            return ScoreResponse(message="No valid resumes were processed successfully")
 
-    else:
         # getting total score
         score_df["Total Score"] = score_df.iloc[:, 1:].sum(axis=1)
 
-        score_df.to_csv("Resume scorer card.csv", index = False)
+        # sorting the dataframe on total score
+        score_df.sort_values(by = 'Total Score', ascending = False, inplace = True, ignore_index = True)
 
-        return {"Success": "Scores are successfully generated and saved in csv file."}
+        score_df.to_csv("Resume scorer card.csv", index=False)
+        
+        return ScoreResponse(message="Scores are successfully generated and saved in csv file.")
+
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return ScoreResponse(message="Failed to process resumes due to an error")

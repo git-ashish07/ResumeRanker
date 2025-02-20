@@ -4,6 +4,7 @@ from typing import List
 from docx import Document
 from io import BytesIO
 from llm import get_criteria_header_prompt, generate_response, get_scoring_prompt
+from models import CriteriaHeaders, CandidateScores
 
 # Function to extract real content from bytes format content
 async def extract_content(file_ext: str, content: bytes) -> str:
@@ -29,7 +30,7 @@ async def extract_content(file_ext: str, content: bytes) -> str:
         return text.strip()
     
 # Function that handles the process of retrieving criteria headers from the extracted criteria
-async def get_criteria_headers(criteria_list: List):
+async def get_criteria_headers(criteria_list: List) -> CriteriaHeaders:
 
     error_correction_prompt = ""
     attempt = 1
@@ -39,7 +40,7 @@ async def get_criteria_headers(criteria_list: List):
     while attempt <= max_retires:
 
         try:
-            prompt = get_criteria_header_prompt(criteria_list, error_correction_prompt = "")
+            prompt = get_criteria_header_prompt(criteria_list, error_correction_prompt)
             response = generate_response(prompt)
             # original_criteria_headers = json.loads(response)
             criteria_headers = json.loads(response)["criteria_headers"]
@@ -80,12 +81,12 @@ async def get_criteria_headers(criteria_list: List):
             continue
 
     if error:
-        criteria_headers = {"Error": "Failed to generate criteria headers, please try again!!"}
+        return CriteriaHeaders(criteria_headers={"Error": "Failed to generate criteria headers, please try again!!"})
 
-    return criteria_headers
+    return CriteriaHeaders(criteria_headers=criteria_headers)
 
 # function to get scores for each candidate resumes based on the resume content and criteria
-async def get_candidate_scores(content : str, criteria_headers: dict):
+async def get_candidate_scores(content: str, criteria_headers: dict) -> CandidateScores:
 
     error_correction_prompt = ""
     attempt = 1
@@ -95,7 +96,7 @@ async def get_candidate_scores(content : str, criteria_headers: dict):
     while attempt <= max_retires:
 
         try:
-            prompt = get_scoring_prompt(content, criteria_headers, error_correction_prompt = "")
+            prompt = get_scoring_prompt(content, criteria_headers, error_correction_prompt)
             response = generate_response(prompt)
             candidate_scores = json.loads(response)
 
@@ -137,6 +138,12 @@ async def get_candidate_scores(content : str, criteria_headers: dict):
             continue
 
     if error:
-        candidate_scores = {"Error": "Failed to generate scores, please try again!!"}
+        return CandidateScores(
+            Candidate_Name="Error",
+            scores={"Error": "Failed to generate scores, please try again!!"}
+        )
 
-    return candidate_scores
+    return CandidateScores(
+        Candidate_Name=candidate_scores.pop("Candidate Name"),
+        scores=candidate_scores
+    )
