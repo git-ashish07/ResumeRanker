@@ -19,8 +19,8 @@ A FastAPI-based service that automates resume evaluation by extracting key crite
 ## Installation
 1. Clone the repository:
    ```bash
-   git clone resume-ranker
-   cd resume-ranker
+   git clone https://github.com/git-ashish07/ResumeRanker.git
+   cd ResumeRanker
    ```
 
 2. Create and activate a virtual environment:

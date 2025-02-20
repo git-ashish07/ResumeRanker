@@ -1,6 +1,6 @@
 import fitz
 import json
-from typing import List, Tuple
+from typing import List
 from docx import Document
 from io import BytesIO
 from llm import get_criteria_header_prompt, generate_response, get_scoring_prompt

@@ -5,7 +5,6 @@ import numpy as np
 from fastapi import FastAPI, UploadFile, HTTPException, Form
 from llm import *
 from utils.helpers import *
-from pydantic import BaseModel
 from typing import List
 
 allowed_extensions = [".pdf", ".docx"]
